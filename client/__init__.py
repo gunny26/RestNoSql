@@ -1,4 +1,4 @@
 #!/usr/bin/python3
 
-from client.RestNoSqlClient import RestNoSqlClient as RestNoSqlClient
-from client.RestNoSqlClient import RestNoSqlDatabase as RestNoSqlDatabase
+from RestNoSqlClient.RestNoSqlClient import RestNoSqlClient as RestNoSqlClient
+from RestNoSqlClient.RestNoSqlClient import RestNoSqlDatabase as RestNoSqlDatabase

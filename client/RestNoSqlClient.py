@@ -61,7 +61,6 @@ class RestNoSqlClient(object):
         res = self._request("OPTIONS")
         return res.json()
 
-
 class RestNoSqlDatabase(object):
 
 
@@ -96,6 +95,11 @@ class RestNoSqlDatabase(object):
     def __exit__(self, *args):
         pass
 
+    def __contains__(self, item):
+        """ mimic x in y behaviour """
+        # print("contains %s" % item)
+        return item in self.keys()
+
     def keys(self):
         if self._keys is None:
             self._keys = self._request("OPTIONS").json()
@@ -121,3 +125,6 @@ class RestNoSqlDatabase(object):
         for key in self.keys():
             yield self[key]
 
+    #def __getattribute__(self, attr):
+    #    print("requesting %s" % attr)
+    #    return object.__getattribute__(self, attr)

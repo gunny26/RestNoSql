@@ -1,0 +1,10 @@
+# plasce this json file in ~/.restnosql/
+{
+    "url" : "https://someurl.google.com/restnosql",
+    "apikey" : "a42c79ce-9682-477d-1234-7e2db335a9f5",
+    "idkey" : "f52fd982-d971-4430-1234-db13f8e4fc9a",
+    "proxies" : {
+        "http" : "someproxy.home:3128",
+        "https" : "someproxy.hom:3128"
+    }
+}

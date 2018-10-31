@@ -67,10 +67,9 @@ def create_nosql():
     backupsets = wsa.get_backupsets(myhostname)
     for backupset in backupsets:
         print("working on backupset ", backupset["basename"])
-        with rnsc.open("backupsets_log") as db_backupsets:
-            if backupset["basename"] in db_backupsets.keys():
-                print("this backupset was already done on ", db_backupsets[backupset["basename"]])
-                continue
+        if backupset["basename"] in db_backupsets.keys():
+            print("this backupset was already done on ", db_backupsets[backupset["basename"]])
+            continue
         hostname, tag, isoformat_ext = backupset["basename"].split("_")
         print(hostname, tag, backupset["date"], backupset["time"])
         data = wsa.get(backupset["basename"])
@@ -80,9 +79,8 @@ def create_nosql():
         logging.info("main thread is waiting")
         q.join() # wait until queue is empty
         logging.info("backupset finished")
-        with rnsc.open("backupsets_log") as db_backupsets:
-            if backupset["basename"] not in db_backupsets.keys():
-                db_backupsets[backupset["basename"]] = datetime.datetime.now().isoformat()
+        if backupset["basename"] not in db_backupsets.keys():
+            db_backupsets[backupset["basename"]] = datetime.datetime.now().isoformat()
     for i in range(num_worker_thread):
         q.put(None)
     for t in threads:
@@ -90,33 +88,28 @@ def create_nosql():
 
 def checksum_thread(myqueue):
     # one session per thread
-    with rnsc.open("absfilename_checksums") as db_absfilename:
-        with rnsc.open("checksum_backupset") as db_checksum:
-            # until que is empty
-            while True:
-                item = myqueue.get()
-                if item is None:
-                    break
-                backupset, absfilename, checksum = item
-                try:
-                    # build absfilename to checksum KV
-                    if absfilename not in db_absfilename.keys():
-                        print("%s first appeared with checksum %s" % (absfilename, checksum))
-                        db_absfilename[absfilename] = [checksum, ]
-                    else:
-                        if checksum not in db_absfilename[absfilename]:
-                            db_absfilename[absfilename].append(checksum)
-                    # build checksum to backupset KV
-                    if checksum not in db_checksum.keys():
-                        print("%s first appeared in %s" % (checksum, backupset["basename"]))
-                        db_checksum[checksum] = backupset
-                    else:
-                        if backupset["datetime"] > db_checksum[checksum]["datetime"]:
-                            # print("%s found in backupset %s" % (checksum, backupset["basename"]))
-                            db_checksum[checksum] = backupset
-                except Exception as exc:
-                    logging.error(exc)
-                myqueue.task_done()
+    # until que is empty
+    while True:
+        item = myqueue.get()
+        if item is None:
+            break
+        backupset, absfilename, checksum = item
+        try:
+            # build absfilename to checksum KV
+            if absfilename in db_absfilename:
+                db_absfilename[absfilename].append(checksum)
+            else:
+                print("%s first appeared with checksum %s" % (absfilename, checksum))
+                db_absfilename[absfilename] = [checksum, ]
+            # build checksum to backupset KV
+            if backupset["datetime"] in db_checksum and backupset["datetime"] > db_checksum[checksum]["datetime"]:
+                db_checksum[checksum] = backupset
+            else:
+                print("%s first appeared in %s" % (checksum, backupset["basename"]))
+                db_checksum[checksum] = backupset
+        except Exception as exc:
+            logging.error(exc)
+        myqueue.task_done()
 
 
 def main1():
@@ -151,22 +144,16 @@ def main1():
 
 if __name__ == "__main__":
     config = json.load(open(os.path.expanduser("~/.restnosql/config.json")))
-    #config = {
-    #    "url" : "https://krake.messner.click/restnosql"
-    #    "apikey" : "a4fc79ce-9682-477d-9502-7e2db335a9f5"
-    #    "idkey" : "f53fd982-d971-4430-9a77-db13f8e4fc9a"
-    #    "proxies" : {
-    #        "http" : "ubuntu.tilak.cc:3128",
-    #        "https" : "ubuntu.tilak.cc:3128"
-    #    }
-    #}
     rnsc = RestNoSqlClient(url=config["url"], apikey=config["apikey"], idkey=config["idkey"], proxies=config["proxies"])
-    create_nosql()
-    file_to_search = "/home/mesznera/Dokumente/Patidok_performance/videobenchmark/auswertung.ods"
-    checksums = search_absfile(tmpdir, file_to_search)
-    if checksums:
-        print("found file %s in %d backupsets" % (file_to_search, len(checksums)))
-        for checksum in checksums:
-            search_checksum(checksum)
-    else:
-        print("file %s not found" % file_to_search)
+    with rnsc.open("backupsets_log") as db_backupsets:
+        with rnsc.open("absfilename_checksums") as db_absfilename:
+            with rnsc.open("checksum_backupset") as db_checksum:
+                create_nosql()
+                file_to_search = "/home/mesznera/Dokumente/Patidok_performance/videobenchmark/auswertung.ods"
+                checksums = search_absfile(tmpdir, file_to_search)
+                if checksums:
+                    print("found file %s in %d backupsets" % (file_to_search, len(checksums)))
+                    for checksum in checksums:
+                        search_checksum(checksum)
+                else:
+                    print("file %s not found" % file_to_search)
